@@ -1,54 +1,187 @@
-// packages/web/src/features/news-list/ui/NewsList.tsx
 'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTopHeadlinesQuery } from '../../../shared/newsApi';
+import { NewsCard } from './NewsCard';
+import { NewsSkeleton } from './NewsSkeleton';
+import { Favorites } from './Favorites';
+import { useFavorites } from '@/shared/hooks/useFavorites';
 import type { NewsItem } from '../../../entities/news/types';
-import Image from 'next/image';
-
-export function NewsCard({ item }: { item: NewsItem }) {
-  return (
-    <article className="border rounded p-4 flex gap-4">
-      {item.urlToImage ? (
-        <Image src={item.urlToImage} alt={item.title} width={120} height={80} className="object-cover rounded" />
-      ) : (
-        <div style={{ width: 120, height: 80 }} className="bg-gray-200 rounded" />
-      )}
-      <div className="flex-1">
-        <h3 className="text-lg font-semibold">{item.title}</h3>
-        <p className="text-sm text-gray-600">{item.description}</p>
-        <div className="text-xs text-gray-400 mt-2">{new Date(item.publishedAt || Date.now()).toLocaleString()}</div>
-      </div>
-    </article>
-  );
-}
 
 export default function NewsList() {
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [allArticles, setAllArticles] = useState<NewsItem[]>([]);
+  const [newArticleUrls, setNewArticleUrls] = useState<Set<string>>(new Set());
+  const articlesPerPage = 10;
+
+  const { favorites, toggleFavorite, isFavorite } = useFavorites();
   const { data, error, isLoading, isFetching, refetch } = useTopHeadlinesQuery({ page, q });
 
+  const totalPages = data?.totalResults
+    ? Math.ceil(data.totalResults / articlesPerPage)
+    : 1;
+
+  // Собираем статьи и отмечаем новые
+  useEffect(() => {
+    if (!data?.articles?.length) return;
+
+    setAllArticles((prev) => {
+      const prevUrls = new Set(prev.map((a) => a.url));
+      const newOnes = data.articles.filter((a) => !prevUrls.has(a.url));
+      if (!newOnes.length) return prev;
+
+      setNewArticleUrls((curr) => {
+        const next = new Set(curr);
+        newOnes.forEach((a) => next.add(a.url));
+        return next;
+      });
+
+      setTimeout(() => {
+        setNewArticleUrls((curr) => {
+          const next = new Set(curr);
+          newOnes.forEach((a) => next.delete(a.url));
+          return next;
+        });
+      }, 3500);
+
+      return [...prev, ...newOnes];
+    });
+  }, [data]);
+
+  const handleSearch = () => {
+    setPage(1);
+    setAllArticles([]);
+    setNewArticleUrls(new Set());
+    refetch();
+  };
+
+  const handleCardClick = (url?: string) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    setAllArticles([]);
+  };
+
+  // Генерация кнопок страниц с ограничением, чтобы не было сотни кнопок
+  const getPageButtons = () => {
+    const maxButtons = 7; // максимум отображаемых кнопок
+    const pages: number[] = [];
+
+    if (totalPages <= maxButtons) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      let start = Math.max(1, page - 3);
+      let end = Math.min(totalPages, page + 3);
+
+      if (start === 1) end = start + maxButtons - 1;
+      if (end === totalPages) start = end - maxButtons + 1;
+
+      for (let i = start; i <= end; i++) pages.push(i);
+    }
+
+    return pages;
+  };
+
   return (
-    <section className="space-y-4">
-      <div className="flex gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} className="border p-2 rounded flex-1" placeholder="Search..." />
-        <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={() => { setPage(1); refetch(); }}>
-          Search
-        </button>
+    <section className="space-y-6">
+      {/* controls */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="border p-2 rounded flex-1"
+            placeholder="Search..."
+            aria-label="Search news"
+          />
+          <button onClick={handleSearch} className="px-4 py-2 bg-blue-600 text-white rounded">
+            Search
+          </button>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            className={`px-4 py-2 rounded ${!showFavorites ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+            onClick={() => setShowFavorites(false)}
+          >
+            All News
+          </button>
+          <button
+            className={`px-4 py-2 rounded ${showFavorites ? 'bg-yellow-400 text-white' : 'bg-gray-200'}`}
+            onClick={() => setShowFavorites(true)}
+          >
+            Favorites ({favorites.length})
+          </button>
+        </div>
       </div>
 
-      {isLoading && <div>Loading...</div>}
-      {error && <div>Error. <button onClick={() => refetch()} className="underline">Retry</button></div>}
+      {error && (
+        <div className="text-red-600">
+          Ошибка загрузки. <button onClick={() => refetch()} className="underline">Повторить</button>
+        </div>
+      )}
 
-      <div className="grid gap-4">
-        {data?.articles?.map((a, i) => <NewsCard key={a.url + i} item={a} />)}
-      </div>
+      {isLoading && <NewsSkeleton columns={2} count={8} />}
 
-      <div className="flex justify-between items-center">
-        <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="px-3 py-1 border rounded">Prev</button>
-        <div>Page {page} {isFetching ? '...' : ''}</div>
-        <button onClick={() => setPage((p) => p + 1)} className="px-3 py-1 border rounded">Next</button>
-      </div>
+      {showFavorites ? (
+        <Favorites />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {allArticles.map((a) => (
+              <div
+                key={a.url}
+                onClick={() => handleCardClick(a.url)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(a.url); }}
+              >
+                <NewsCard
+                  item={a}
+                  isFavorite={isFavorite(a.url)}
+                  toggleFavorite={toggleFavorite}
+                  isNew={newArticleUrls.has(a.url)}
+                />
+              </div>
+            ))}
+          </div>
+
+          {isFetching && !isLoading && <NewsSkeleton columns={2} count={2} small />}
+
+          {/* кнопки навигации */}
+          <div className="flex justify-center gap-2 mt-6 flex-wrap">
+            <button
+              disabled={page === 1}
+              onClick={() => handlePageChange(page - 1)}
+              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+            >
+              ← Prev
+            </button>
+
+            {getPageButtons().map((num) => (
+              <button
+                key={num}
+                className={`px-3 py-1 rounded ${page === num ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+                onClick={() => handlePageChange(num)}
+              >
+                {num}
+              </button>
+            ))}
+
+            <button
+              disabled={page === totalPages}
+              onClick={() => handlePageChange(page + 1)}
+              className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+            >
+              Next →
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 }
