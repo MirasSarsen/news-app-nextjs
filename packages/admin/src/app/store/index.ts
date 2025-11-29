@@ -1,10 +1,9 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { newsApi } from "@shared/api/newsApi";
+import { adminApi } from "../../shared/api/adminApi";
 
 export const store = configureStore({
   reducer: {
-    [newsApi.reducerPath]: newsApi.reducer,
+    [adminApi.reducerPath]: adminApi.reducer,
   },
-  middleware: (getDefault) =>
-    getDefault().concat(newsApi.middleware),
+  middleware: (gdm) => gdm().concat(adminApi.middleware),
 });
