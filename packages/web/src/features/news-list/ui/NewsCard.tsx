@@ -1,6 +1,6 @@
 'use client';
 import React, { forwardRef } from 'react';
-import { SafeImage } from '@/shared/ui/SafeImage';
+import { SafeImage } from '../../../shared/ui/packages/web/src/shared/ui/SafeImage';
 import type { NewsItem } from '../../../entities/news/types';
 
 interface NewsCardProps {
