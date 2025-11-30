@@ -13,13 +13,13 @@ const allowedHosts = [
   'cdn.cnn.com',
 ];
 
-interface SafeImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> {
+interface SafeImageProps {
   src: string;
   alt: string;
   className?: string;
 }
 
-export function SafeImage({ src, alt, className = '', ...props }: SafeImageProps) {
+export function SafeImage({ src, alt, className = '' }: SafeImageProps) {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -56,7 +56,6 @@ export function SafeImage({ src, alt, className = '', ...props }: SafeImageProps
             setLoading(false);
           }}
           onLoad={() => setLoading(false)}
-          {...props}
         />
       </div>
     );
@@ -76,7 +75,6 @@ export function SafeImage({ src, alt, className = '', ...props }: SafeImageProps
         }}
         onLoad={() => setLoading(false)}
         loading="lazy"
-        {...props}
       />
     </>
   );
