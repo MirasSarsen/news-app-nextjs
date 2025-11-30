@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const adminApi = createApi({
   reducerPath: "adminApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5000/admin", // твой backend
+    baseUrl: "http://localhost:5000/admin",
   }),
 
   tagTypes: ["News"],
